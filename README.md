@@ -1,6 +1,6 @@
 # Example Repository for Osmosis GitHub Sync
 
-This repository demonstrates the expected structure and content that will be automatically synced by the Osmosis GitHub integration.
+This repository demonstrates the expected structure and content that will be automatically synced by the Osmosis GitHub integration. It is expected that your tools and reward use python version 3.10
 
 ## Repository Structure
 
