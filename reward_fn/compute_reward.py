@@ -37,10 +37,10 @@ def task_completion_reward(state: dict, action: dict, next_state: dict, metadata
         reward += 5.0 * task_complexity
     
     # Time-based rewards (encourage timely completion)
-    if metadata and "time_taken" in metadata:
+    if metadata and "time_taken" in metadata and "expected_time" in metadata:
         time_taken = metadata["time_taken"]
-        expected_time = metadata.get("expected_time", time_taken)
-        if time_taken <= expected_time:
+        expected_time = metadata["expected_time"]
+        if expected_time > 0 and time_taken <= expected_time:
             efficiency_bonus = (expected_time - time_taken) / expected_time * 2.0
             reward += efficiency_bonus
     
