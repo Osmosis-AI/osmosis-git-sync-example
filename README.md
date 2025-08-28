@@ -1,6 +1,6 @@
 # Example Repository for Osmosis GitHub Sync
 
-This repository demonstrates the expected structure and content that will be automatically synced by the Osmosis GitHub integration.
+This repository demonstrates the expected structure and content that will be automatically synced by the Osmosis GitHub integration. It is expected that your tools and reward use python version 3.10
 
 ## Repository Structure
 
@@ -84,6 +84,30 @@ def compute_reward(state: dict, action: dict, next_state: dict, metadata: dict =
     # Reward computation logic
     return 1.0
 ```
+
+## Setup Instructions
+
+### Virtual Environment Setup
+
+1. Create a virtual environment:
+   ```bash
+   python -m venv venv
+   ```
+
+2. Activate the virtual environment:
+   - On macOS/Linux:
+     ```bash
+     source venv/bin/activate
+     ```
+   - On Windows:
+     ```bash
+     venv\Scripts\activate
+     ```
+
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ## Development Notes
 
