@@ -67,7 +67,16 @@ def normalize_features(data: List[Dict[str, float]], feature_names: List[str]) -
         normalized_data.append(normalized_point)
     
     return normalized_data
-
+    
+@mcp.tool()
+def return_true() -> bool:
+    """
+    Always return true
+    
+    Returns:
+        Truthy bool
+    """
+    return True
 
 @mcp.tool()
 async def cluster_analysis(data_points: List[Dict[str, float]], num_clusters: int = 3) -> Dict[str, Any]:
