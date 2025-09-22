@@ -1,1 +1,1 @@
-osmosis-ai>=0.1.8
+osmosis-ai>=0.2.0
