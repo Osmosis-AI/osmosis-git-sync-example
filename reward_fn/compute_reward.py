@@ -1,159 +1,222 @@
-from osmosis_ai.utils import osmosis_reward
+from osmosis_ai import osmosis_reward
 
 
 @osmosis_reward
-def engagement_reward(state: dict, action: dict, next_state: dict, metadata: dict = None) -> float:
+def engagement_quality_reward(solution_str: str, ground_truth: str, extra_info: dict = None) -> float:
     """
-    Compute reward for user engagement and basic actions.
+    Reward based on solution engagement quality and completeness.
     """
-    reward = 0.0
-    
-    # Base reward for any action (encourages engagement)
-    reward += 0.1
-    
-    # Platform engagement rewards
-    if "engagement_metrics" in next_state:
-        engagement = next_state["engagement_metrics"]
-        session_length = engagement.get("session_length", 0)
-        interactions = engagement.get("interactions", 0)
-        
-        # Reward longer, more interactive sessions (with diminishing returns)
-        reward += min(session_length * 0.1, 2.0)
-        reward += min(interactions * 0.2, 3.0)
-    
+    if not solution_str.strip():
+        return 0.0
+
+    # Base reward for providing a solution
+    reward = 0.1
+
+    # Length-based engagement (solutions that are more detailed)
+    solution_length = len(solution_str.strip())
+    truth_length = len(ground_truth.strip())
+
+    if truth_length > 0:
+        # Reward solutions that are appropriately detailed
+        length_ratio = min(solution_length / truth_length, 2.0)
+        reward += length_ratio * 0.3
+
+    # Additional engagement metrics from extra_info
+    if extra_info:
+        engagement_score = extra_info.get("engagement_score", 0)
+        reward += min(engagement_score * 0.2, 1.0)
+
     return reward
 
 
 @osmosis_reward
-def task_completion_reward(state: dict, action: dict, next_state: dict, metadata: dict = None) -> float:
+def correctness_reward(solution_str: str, ground_truth: str, extra_info: dict = None) -> float:
     """
-    Compute reward for task completion and efficiency.
+    Reward based on solution correctness with partial credit.
     """
+    solution_clean = solution_str.strip().lower()
+    truth_clean = ground_truth.strip().lower()
+
+    # Exact match gets full points
+    if solution_clean == truth_clean:
+        return 5.0
+
+    # Partial credit for similar solutions
+    if solution_clean in truth_clean or truth_clean in solution_clean:
+        return 2.5
+
+    # Check for keyword matches if extra_info provides them
+    if extra_info and "key_concepts" in extra_info:
+        key_concepts = [k.lower() for k in extra_info["key_concepts"]]
+        matches = sum(1 for concept in key_concepts if concept in solution_clean)
+        if matches > 0:
+            return matches * 1.0
+
+    return 0.0
+
+
+@osmosis_reward
+def explanation_quality_reward(solution_str: str, ground_truth: str, extra_info: dict = None) -> float:
+    """
+    Reward solutions that demonstrate good explanation and reasoning.
+    """
+    solution_clean = solution_str.strip()
+
+    if not solution_clean:
+        return 0.0
+
     reward = 0.0
-    
-    # Reward for task completion
-    if state.get("task_status") == "pending" and next_state.get("task_status") == "completed":
-        task_complexity = state.get("task_complexity", 1)
-        reward += 5.0 * task_complexity
-    
-    # Time-based rewards (encourage timely completion)
-    if metadata and "time_taken" in metadata and "expected_time" in metadata:
-        time_taken = metadata["time_taken"]
-        expected_time = metadata["expected_time"]
-        if expected_time > 0 and time_taken <= expected_time:
-            efficiency_bonus = (expected_time - time_taken) / expected_time * 2.0
-            reward += efficiency_bonus
-    
+
+    # Reward explanatory keywords
+    explanation_keywords = ["because", "therefore", "since", "due to", "as a result",
+                           "this means", "in other words", "for example"]
+
+    keyword_count = sum(1 for keyword in explanation_keywords
+                       if keyword in solution_clean.lower())
+    reward += min(keyword_count * 0.5, 2.0)
+
+    # Reward structured thinking (lists, steps)
+    if any(marker in solution_clean for marker in ["1.", "2.", "•", "-", "first", "second"]):
+        reward += 1.0
+
+    # Reward if explanation covers key learning concepts
+    if extra_info and "learning_objectives" in extra_info:
+        objectives = extra_info["learning_objectives"]
+        covered = sum(1 for obj in objectives if obj.lower() in solution_clean.lower())
+        reward += covered * 0.8
+
     return reward
 
 
 @osmosis_reward
-def learning_progress_reward(state: dict, action: dict, next_state: dict, metadata: dict = None) -> float:
+def creativity_reward(solution_str: str, ground_truth: str, extra_info: dict = None) -> float:
     """
-    Compute reward for learning progress and skill improvement.
+    Reward creative and innovative approaches to solutions.
     """
+    solution_clean = solution_str.strip()
+    truth_clean = ground_truth.strip()
+
+    if not solution_clean:
+        return 0.0
+
     reward = 0.0
-    
-    # Reward for learning progress
-    if "skill_level" in state and "skill_level" in next_state:
-        skill_improvement = next_state["skill_level"] - state["skill_level"]
-        reward += skill_improvement * 2.0
-    
-    # Learning outcome rewards
-    if "learning_outcomes" in next_state:
-        outcomes = next_state["learning_outcomes"]
-        concepts_mastered = outcomes.get("concepts_mastered", 0)
-        retention_rate = outcomes.get("retention_rate", 0.0)
-        
-        reward += concepts_mastered * 1.0
-        reward += retention_rate * 5.0
-    
+
+    # Reward alternative valid approaches
+    if solution_clean.lower() != truth_clean.lower() and len(solution_clean) > len(truth_clean) * 0.8:
+        reward += 1.5  # Bonus for different but substantial answers
+
+    # Reward creative language and examples
+    creativity_indicators = ["innovative", "creative", "alternative", "another way",
+                           "different approach", "for instance", "imagine"]
+
+    creative_count = sum(1 for indicator in creativity_indicators
+                        if indicator in solution_clean.lower())
+    reward += min(creative_count * 0.7, 2.0)
+
+    # Bonus for providing multiple solutions or perspectives
+    if "alternatively" in solution_clean.lower() or "option" in solution_clean.lower():
+        reward += 1.0
+
     return reward
 
 
 @osmosis_reward
-def social_interaction_reward(state: dict, action: dict, next_state: dict, metadata: dict = None) -> float:
+def clarity_reward(solution_str: str, ground_truth: str, extra_info: dict = None) -> float:
     """
-    Compute reward for collaboration and knowledge sharing.
+    Reward clear, well-structured solutions.
     """
+    solution_clean = solution_str.strip()
+
+    if not solution_clean:
+        return 0.0
+
     reward = 0.0
-    
-    # Reward for collaboration
-    if action.get("type") == "collaborate":
-        num_collaborators = action.get("collaborators", 0)
-        reward += num_collaborators * 1.5
-    
-    # Reward for knowledge sharing
-    if action.get("type") == "share_knowledge":
-        knowledge_quality = action.get("quality_score", 0)
-        reward += knowledge_quality * 3.0
-    
+
+    # Reward proper grammar and punctuation
+    sentences = solution_clean.split('.')
+    if len(sentences) > 1 and sentences[-1].strip() == '':
+        reward += 0.5  # Bonus for proper sentence ending
+
+    # Reward appropriate length (not too short, not too verbose)
+    word_count = len(solution_clean.split())
+    if 10 <= word_count <= 100:
+        reward += 1.0
+    elif 5 <= word_count <= 150:
+        reward += 0.5
+
+    # Reward clear structure
+    if any(transition in solution_clean.lower() for transition in
+           ["first", "next", "then", "finally", "in conclusion"]):
+        reward += 0.8
+
+    # Quality indicators from extra_info
+    if extra_info:
+        clarity_score = extra_info.get("clarity_score", 0)
+        reward += clarity_score * 1.5
+
     return reward
 
 
 @osmosis_reward
-def quality_satisfaction_reward(state: dict, action: dict, next_state: dict, metadata: dict = None) -> float:
+def appropriateness_penalty(solution_str: str, ground_truth: str, extra_info: dict = None) -> float:
     """
-    Compute reward for output quality and user satisfaction.
+    Apply penalties for inappropriate or low-quality responses.
     """
-    reward = 0.0
-    
-    # Quality-based rewards
-    if "output_quality" in next_state:
-        quality_score = next_state["output_quality"]
-        reward += quality_score * 1.0
-    
-    # User satisfaction rewards
-    if "user_satisfaction" in next_state:
-        satisfaction = next_state["user_satisfaction"]
-        reward += satisfaction * 2.5
-    
-    return reward
+    solution_clean = solution_str.strip().lower()
+
+    if not solution_clean:
+        return -1.0  # Penalty for empty responses
+
+    penalty = 0.0
+
+    # Penalty for very short, low-effort responses
+    if len(solution_clean) < 3:
+        penalty -= 2.0
+
+    # Penalty for spam-like content
+    spam_indicators = ["spam", "click here", "buy now", "free money"]
+    if any(indicator in solution_clean for indicator in spam_indicators):
+        penalty -= 5.0
+
+    # Penalty for inappropriate content flags from extra_info
+    if extra_info:
+        if extra_info.get("inappropriate", False):
+            penalty -= 10.0
+        if extra_info.get("off_topic", False):
+            penalty -= 3.0
+
+    return penalty
 
 
-@osmosis_reward
-def behavior_penalty_reward(state: dict, action: dict, next_state: dict, metadata: dict = None) -> float:
+def compute_reward(solution_str: str, ground_truth: str, extra_info: dict = None) -> float:
     """
-    Compute penalties for negative behaviors.
-    """
-    reward = 0.0
-    
-    # Penalty for negative actions
-    if action.get("type") == "spam" or action.get("inappropriate", False):
-        reward -= 10.0
-    
-    return reward
+    Compute combined reward for evaluating solution quality in the Osmosis platform.
 
+    This function combines multiple specialized reward functions to evaluate
+    solution quality across different dimensions: correctness, engagement,
+    explanation quality, creativity, clarity, and appropriateness.
 
-def compute_reward(state: dict, action: dict, next_state: dict, metadata: dict = None) -> float:
-    """
-    Compute combined reward for a given state transition in the Osmosis platform.
-    
-    This function combines multiple specialized reward functions to evaluate 
-    user actions and state changes, providing feedback for reinforcement 
-    learning algorithms or behavior analysis.
-    
     Args:
-        state: Current state of the system/user
-        action: Action taken by the user
-        next_state: Resulting state after the action
-        metadata: Additional context information
-    
+        solution_str: The solution string provided by the user
+        ground_truth: The expected/correct solution string to compare against
+        extra_info: Additional context information such as learning objectives,
+                   key concepts, engagement metrics, and quality scores
+
     Returns:
-        Float reward value (higher is better)
+        Float reward value (higher is better, bounded between -20.0 and 50.0)
     """
     # Combine rewards from all specialized reward functions
     reward = 0.0
-    reward += engagement_reward(state, action, next_state, metadata)
-    reward += task_completion_reward(state, action, next_state, metadata)
-    reward += learning_progress_reward(state, action, next_state, metadata)
-    reward += social_interaction_reward(state, action, next_state, metadata)
-    reward += quality_satisfaction_reward(state, action, next_state, metadata)
-    reward += behavior_penalty_reward(state, action, next_state, metadata)
-    
+    reward += engagement_quality_reward(solution_str, ground_truth, extra_info)
+    reward += correctness_reward(solution_str, ground_truth, extra_info)
+    reward += explanation_quality_reward(solution_str, ground_truth, extra_info)
+    reward += creativity_reward(solution_str, ground_truth, extra_info)
+    reward += clarity_reward(solution_str, ground_truth, extra_info)
+    reward += appropriateness_penalty(solution_str, ground_truth, extra_info)
+
     # Ensure reward is within reasonable bounds
     reward = max(-20.0, min(50.0, reward))
-    
+
     return reward
 
 
