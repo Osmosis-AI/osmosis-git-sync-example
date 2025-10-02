@@ -7,4 +7,5 @@ requires-python = ">=3.12"
 dependencies = [
     "fastmcp>=2.12.4",
     "osmosis-ai>=0.2.1",
+    "rich>=14.1.0",
 ]
