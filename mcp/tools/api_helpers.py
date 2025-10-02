@@ -1,8 +1,10 @@
 from typing import Dict, List, Optional, Any
 import json
+import math
+
 from server import mcp
 
-@mcp.tool()
+@mcp.tool
 def validate_api_request(request_data: Dict[str, Any], required_fields: List[str]) -> Dict[str, Any]:
     """
     Validate API request data against required fields.
@@ -55,7 +57,7 @@ def format_api_response(data: Any, status_code: int = 200, message: str = "Succe
     }
 
 
-@mcp.tool()
+@mcp.tool
 def paginate_results(items: List[Any], page: int = 1, per_page: int = 10) -> Dict[str, Any]:
     """
     Paginate a list of items.
@@ -89,4 +91,3 @@ def paginate_results(items: List[Any], page: int = 1, per_page: int = 10) -> Dic
     }
 
 
-import math  # Add this import at the top

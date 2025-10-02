@@ -5,7 +5,7 @@ import statistics
 from server import mcp
 
 
-@mcp.tool()
+@mcp.tool
 def calculate_similarity(vector_a: List[float], vector_b: List[float]) -> float:
     """
     Calculate cosine similarity between two vectors.
@@ -30,7 +30,7 @@ def calculate_similarity(vector_a: List[float], vector_b: List[float]) -> float:
     return dot_product / (magnitude_a * magnitude_b)
 
 
-@mcp.tool()
+@mcp.tool
 def normalize_features(data: List[Dict[str, float]], feature_names: List[str]) -> List[Dict[str, float]]:
     """
     Normalize specified features using min-max normalization.
