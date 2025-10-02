@@ -3,7 +3,7 @@ import json
 import requests
 from server import mcp
 
-@mcp.tool()
+@mcp.tool
 def fetch_user_data(user_id: int, include_metadata: bool = False) -> Dict[str, Any]:
     """
     Fetch user data from the platform API.
@@ -59,7 +59,7 @@ async def analyze_user_behavior(user_id: int, days_back: int = 30) -> Dict[str, 
     return analysis
 
 
-@mcp.tool()
+@mcp.tool
 def export_data(data: Dict[str, Any], format_type: str = "json") -> str:
     """
     Export data in the specified format.
