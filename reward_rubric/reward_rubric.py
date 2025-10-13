@@ -126,10 +126,13 @@ def main() -> None:
         )
     except MissingAPIKeyError as exc:
         print(f"OpenAI example skipped: {exc}")
+        raise SystemExit(1)
     except ModelNotFoundError as exc:
         print(f"OpenAI example skipped: {exc.detail}")
+        raise SystemExit(1)
     except ProviderRequestError as exc:
         print(f"OpenAI example failed: {exc.detail}")
+        raise SystemExit(1)
     else:
         score_value = float(result["score"]) if isinstance(result, dict) else float(result)
         explanation = result.get("explanation", "") if isinstance(result, dict) else ""
