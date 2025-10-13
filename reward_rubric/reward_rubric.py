@@ -46,8 +46,27 @@ def score_support_conversation(
     score_min: float = SCORE_MIN,
     score_max: float = SCORE_MAX,
 ) -> float:
-    """
-    Delegate rubric scoring to a hosted model while keeping @osmosis_rubric validation.
+    """Score a support conversation against the rubric using a hosted model.
+
+    The @osmosis_rubric decorator validates the inputs and integrates with the
+    Osmosis platform. This helper forwards the scoring request to
+    ``osmosis_ai.evaluate_rubric`` and returns the numeric score.
+
+    Args:
+        model_info: Provider and model configuration used for evaluation.
+        rubric: Rubric text that defines the evaluation criteria.
+        messages: Conversation messages to score.
+        ground_truth: Optional expected outcome used in rubric evaluation.
+        system_message: Optional system prompt to include in the request.
+        extra_info: Mutable metadata passed through the evaluation pipeline. If
+            ``capture_details`` is set to True, this dictionary is updated in
+            place with a ``result_details`` entry containing the full response
+            payload from the hosted model.
+        score_min: Lower bound for the score range.
+        score_max: Upper bound for the score range.
+
+    Returns:
+        float: The evaluated score within ``score_min`` and ``score_max``.
     """
     if extra_info is None:
         extra_info = {}
