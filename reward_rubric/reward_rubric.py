@@ -113,17 +113,24 @@ def main() -> None:
     extra_info: Dict[str, Any] = {"capture_details": capture_details, "prompt_extra_info": None}
 
     try:
-        result = evaluate_rubric(
+        score_value = score_support_conversation(
+            model_info=model_info,
             rubric=rubric_text,
             messages=messages,
-            model_info=model_info,
             ground_truth=ground_truth,
             system_message=None,
-            extra_info=extra_info.get("prompt_extra_info"),
+            extra_info=extra_info,
             score_min=score_min,
             score_max=score_max,
-            return_details=capture_details,
         )
+
+        print(f"OpenAI score: {score_value:.2f} (range {score_min}-{score_max})")
+
+        if capture_details:
+            result_details = extra_info.get("result_details") or {}
+            explanation = result_details.get("explanation", "") if isinstance(result_details, dict) else ""
+            if explanation:
+                print(f"OpenAI explanation: {explanation}")
     except MissingAPIKeyError as exc:
         print(f"OpenAI example skipped: {exc}")
         raise SystemExit(1)
@@ -133,13 +140,6 @@ def main() -> None:
     except ProviderRequestError as exc:
         print(f"OpenAI example failed: {exc.detail}")
         raise SystemExit(1)
-    else:
-        score_value = float(result["score"]) if isinstance(result, dict) else float(result)
-        explanation = result.get("explanation", "") if isinstance(result, dict) else ""
-
-        print(f"OpenAI score: {score_value:.2f} (range {score_min}-{score_max})")
-        if capture_details and explanation:
-            print(f"OpenAI explanation: {explanation}")
 
 
 if __name__ == "__main__":
