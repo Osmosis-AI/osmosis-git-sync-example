@@ -1,0 +1,24 @@
+name: Reward Rubric Score
+
+on:
+  push:
+    paths:
+      - "reward_rubric/reward_rubric_config.yaml"
+  pull_request:
+    paths:
+      - "reward_rubric/reward_rubric_config.yaml"
+
+jobs:
+  run-reward-rubric:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run reward rubric score
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python reward_rubric/reward_rubric.py --config reward_rubric/reward_rubric_config.yaml

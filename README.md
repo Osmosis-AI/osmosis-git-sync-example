@@ -1,174 +1,144 @@
 # Example Repository for Osmosis GitHub Sync
 
-This repository demonstrates the expected structure and content that will be automatically synced by the Osmosis GitHub integration. It is expected that your tools and reward use python version 3.10
+This repository demonstrates the layout and code artifacts that the Osmosis GitHub integration discovers and syncs. It bundles a FastMCP tool server, a numeric reward function, and a rubric-based scorer so you can exercise every integration surface locally before connecting to Osmosis.
 
-## Repository Structure
+## Requirements
 
-### `/mcp/` - MCP Tools Directory
+- Python 3.12 (matches `pyproject.toml`)
+- Project dependencies from `requirements.txt` (`pip install -r requirements.txt`), or install in editable mode via `pip install -e .`/`uv pip install .`
 
-Contains a FastMCP HTTP server with MCP (Model Context Protocol) tool functions that will be automatically discovered and synced to the Osmosis platform.
+## Repository Layout
 
-**Structure:**
-```
-mcp/
-├── main.py                    # HTTP server entry point
-├── server/
-│   └── mcp_server.py         # FastMCP server instance ("OsmosisTools")
-└── tools/
-    ├── math.py               # Mathematical operations
-    ├── ml_utils.py           # Machine learning utility functions
-    └── api_helpers.py        # API validation and formatting helpers
-```
-
-**Available Tools:**
-
-*math.py:*
-- `multiply(first_val, second_val)` - Calculates the product of two numbers
-
-*api_helpers.py:*
-- `validate_api_request(request_data, required_fields)` - Validates API request data against required fields
-- `format_api_response(data, status_code, message)` - Formats data into standardized API response structure
-- `paginate_results(items, page, per_page)` - Paginates a list of items
-
-*ml_utils.py:*
-- `calculate_similarity(vector_a, vector_b)` - Calculates cosine similarity between two vectors
-- `normalize_features(data, feature_names)` - Performs min-max normalization on specified features
-- `return_true()` - Always returns true (test function)
-- `cluster_analysis(data_points, num_clusters)` - Performs k-means clustering analysis
-
-**Server Features:**
-- HTTP transport support (default: 0.0.0.0:8080)
-- Health check endpoint at `/health`
-- Streamable responses
-
-**Requirements:**
-- Functions must be decorated with `@mcp.tool()` or `@mcp.tool`
-- Functions should include proper type hints
-- Docstrings should describe the function's purpose and parameters
-
-### `/reward_fn/` - Reward Function Directory
-
-Contains the reward function implementation for evaluating mathematical problem solutions.
-
-**Files:**
-- `compute_reward.py` - Reward computation function for numerical answer validation
-
-**Implementation:**
-- `numbers_match_reward(solution_str, ground_truth, extra_info)` - Extracts numerical answers from solution strings and compares them against ground truth
-  - Expects solutions in format: `#### [number]`
-  - Returns 1.0 if extracted solution matches ground truth (within 1e-7 tolerance)
-  - Returns 0.0 otherwise
-
-**Requirements:**
-- Functions must be decorated with `@osmosis_reward`
-- Function should return a numeric reward value
-
-## Sync Process
-
-When this repository is connected to the Osmosis platform:
-
-1. **MCP Tools**: All `@mcp.tool()` decorated functions in `/mcp/tools/` will be:
-   - Parsed for function signatures and parameters
-   - Stored in the tools database with metadata
-   - Made available for use in the platform
-
-2. **Reward Functions**: The `@osmosis_reward` decorated functions in `/reward_fn/compute_reward.py` will be:
-   - Extracted and stored as a reward function
-   - Available for reinforcement learning workflows
-   - Used in behavior analysis and optimization
-
-## Running the MCP Server
-
-To start the HTTP server:
-
-```bash
-# Default (0.0.0.0:8080)
-python mcp/main.py
-
-# Custom host and port
-python mcp/main.py --host 127.0.0.1 --port 3000
-```
-
-Health check endpoint:
-```bash
-curl http://localhost:8080/health
-# Returns: OK
-```
-
-## Example Usage
-
-### MCP Tools
-```python
-from server import mcp
-
-@mcp.tool()
-def multiply(first_val: float, second_val: float) -> float:
-    '''
-    Calculate the product of two numbers
-
-    Args:
-        first_val: the first value to be multiplied
-        second_val: the second value to be multiplied
-    '''
-    return round(first_val * second_val, 4)
-```
-
-### Reward Function
-```python
-import re
-from osmosis_ai import osmosis_reward
-
-def extract_solution(solution_str):
-    solution = re.search(r'####\s*([-+]?\d*\.?\d+)', solution_str)
-    if(not solution or solution is None):
-        return None
-    final_solution = solution.group(1)
-    return final_solution
-
-@osmosis_reward
-def numbers_match_reward(solution_str: str, ground_truth: str, extra_info: dict=None):
-    """
-    Extract numerical answer from solution string and compare with ground truth.
-
-    Args:
-        solution_str: Solution string containing answer after ####
-        ground_truth: Expected numerical answer as string
-        extra_info: Additional context (optional)
-
-    Returns:
-        1.0 if answers match (within 1e-7), 0.0 otherwise
-    """
-    extracted = extract_solution(solution_str)
-    try:
-        sol_val = float(extracted)
-    except:
-        return 0.0
-
-    gt_val = float(ground_truth)
-
-    if(sol_val is None):
-        return 0.0
-
-    if(abs(gt_val - sol_val) < 1e-7):
-        return 1.0
-    return 0.0
-```
-
-# Repo structure
 ```
 osmosis-git-sync-example/
-├── mcp/                        # MCP tools directory
-│   ├── main.py                 # HTTP server entry point
+├── mcp/
+│   ├── main.py
 │   ├── server/
 │   │   ├── __init__.py
-│   │   └── mcp_server.py      # FastMCP server instance
+│   │   └── mcp_server.py
 │   ├── tools/
 │   │   ├── __init__.py
-│   │   ├── math.py            # Mathematical operations
-│   │   ├── api_helpers.py     # API validation and formatting
-│   │   └── ml_utils.py        # ML utility functions
+│   │   ├── api_helpers.py
+│   │   ├── math.py
+│   │   └── ml_utils.py
 │   └── test/
-│       └── test.py            # Test files
-└── reward_fn/                  # Reward functions directory
-    └── compute_reward.py      # Numerical answer validation
+│       └── test.py
+├── reward_fn/
+│   └── compute_reward.py
+├── reward_rubric/
+│   ├── reward_rubric.py
+│   ├── reward_rubric_config.yaml
+│   └── reward_rubric_example.json
+├── .github/
+│   └── workflows/
+│       └── reward_rubric.yml
+├── scripts/
+│   └── run_reward_rubric.sh
+├── LICENSE.md
+├── pyproject.toml
+├── uv.lock
+└── README.md
 ```
+
+### `mcp/` – FastMCP tools and server
+
+- `main.py` starts the FastMCP HTTP transport (`python mcp/main.py`) and accepts `--host/--port`.
+- `server/mcp_server.py` instantiates `FastMCP("OsmosisTools")` and exposes a `/health` route.
+- `tools/__init__.py` auto-imports every `@mcp.tool` decorated function so the server exposes them.
+- Tool modules:
+  - `math.multiply(first_val, second_val)` multiplies two numbers and rounds to four decimals.
+  - `api_helpers.validate_api_request(...)` validates required/empty fields.
+  - `api_helpers.format_api_response(...)` wraps payloads in a consistent envelope.
+  - `api_helpers.paginate_results(...)` slices item lists and returns pagination metadata.
+  - `ml_utils.calculate_similarity(...)` computes cosine similarity.
+  - `ml_utils.normalize_features(...)` performs min–max normalization on selected fields.
+  - `ml_utils.return_true()` always returns `True`; useful for sanity checks.
+  - `ml_utils.cluster_analysis(...)` (async) produces a toy clustering summary for supplied data.
+- `test/test.py` shows how to connect with `fastmcp.Client` and list the published tools.
+
+### `reward_fn/` – Numeric reward functions
+
+- `compute_reward.py` implements `@osmosis_reward numbers_match_reward(...)`.
+  - `extract_solution` looks for answers after `####` and returns the numeric token.
+  - The reward converts both strings to floats and returns `1.0` when they match within `1e-7`, else `0.0`.
+
+### `reward_rubric/` – Rubric-based scoring
+
+- `reward_rubric.py` defines `@osmosis_rubric score_support_conversation(...)`.
+  - Delegates scoring to `osmosis_ai.evaluate_rubric`, optionally capturing detailed metadata via `extra_info`.
+  - Provides a `main()` helper that loads `reward_rubric_example.json` and prints the score.
+- `reward_rubric_config.yaml` stores the rubric prompt, score range, ground truth summary, and default model info.
+- `reward_rubric_example.json` is a sample support conversation that can be evaluated locally.
+
+### `.github/workflows/`
+
+- `reward_rubric.yml` runs the rubric scorer in GitHub Actions whenever `reward_rubric/reward_rubric_config.yaml` changes on a push or pull request. The job installs dependencies, injects an API key via secrets, and executes the rubric script so reviewers can see an automated score.
+
+### `scripts/`
+
+- `run_reward_rubric.sh` runs the rubric example (`python reward_rubric/reward_rubric.py --config ...`). Ensure `OPENAI_API_KEY` (or another provider key supported by `osmosis_ai`) is available in the environment before executing.
+
+## Installing dependencies
+
+```bash
+# From the repository root
+pip install -r requirements.txt
+# or install in editable mode
+pip install -e .
+# or, if you use uv
+uv pip install .
+```
+
+## Running the MCP server
+
+```bash
+# Default: 0.0.0.0:8080
+python mcp/main.py
+
+# Custom host/port
+python mcp/main.py --host 127.0.0.1 --port 3000
+
+# Health check
+curl http://localhost:8080/health
+```
+
+## Exercising the MCP tools locally
+
+```bash
+python mcp/test/test.py
+```
+
+The script connects to `http://0.0.0.0:8080/mcp`, confirms the session, and lists the registered tools.
+
+## Running the reward rubric example
+
+```bash
+export OPENAI_API_KEY=sk-your-key
+./scripts/run_reward_rubric.sh
+```
+
+The script passes the default config file, but the scorer now accepts additional flags:
+
+```bash
+python reward_rubric/reward_rubric.py \
+  --config path/to/custom_config.yaml \
+  --messages path/to/messages.json \
+  --no-capture-details  # optional
+```
+
+Omit `--no-capture-details` to include the hosted model's explanation in the output. If the API key is missing, the script still produces descriptive error messages about the requirement.
+
+## Configuring CI/CD with GitHub Actions
+
+1. **Add the API key secret:** In your GitHub repository, open **Settings → Secrets and variables → Actions**, click **New repository secret**, name it `OPENAI_API_KEY`, and paste the same key you use locally. GitHub encrypts it and only exposes it to workflow runs.
+2. **Understand the workflow trigger:** `.github/workflows/reward_rubric.yml` runs automatically on pushes and pull requests that touch `reward_rubric/reward_rubric_config.yaml`, keeping rubric edits validated without running on unrelated changes.
+3. **Review the CI output:** After pushing a change, check the **Actions** tab. The job `Reward Rubric Score` installs dependencies, runs `python reward_rubric/reward_rubric.py --config reward_rubric/reward_rubric_config.yaml`, and surfaces success or failure details in the logs.
+4. **Re-run or trigger manually:** From the workflow run page you can click **Re-run jobs** to execute the latest code or secrets again. To test on demand, add a `workflow_dispatch` trigger so you can launch the job with the **Run workflow** button.
+
+## How Osmosis syncs this repository
+
+1. **MCP tools** – Every function decorated with `@mcp.tool` (or `@mcp.tool()`) inside `mcp/tools/` is ingested, including type hints and docstrings.
+2. **Reward functions** – Functions decorated with `@osmosis_reward` in `reward_fn/` become numeric reward hooks for reinforcement learning pipelines.
+3. **Reward rubrics** – Functions decorated with `@osmosis_rubric` in `reward_rubric/` are registered so hosted models can score conversations using your rubric text.
+
+Keep type hints, docstrings, and configuration files current so the Osmosis sync remains accurate.
