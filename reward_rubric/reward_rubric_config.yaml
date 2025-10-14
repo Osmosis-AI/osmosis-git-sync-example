@@ -2,7 +2,7 @@ rubric: >
   Score how well the assistant resolves a smart appliance troubleshooting request.
   Reward answers that confirm warranty eligibility, collect relevant diagnostics,
   offer safe and actionable steps, and set clear expectations for follow-up
-  service. Penalize answers that ignore the user's constraints or invent
+  service. Penalize answers that ignore the user's constraints or invent.
   unsupported policies.
 score_min: 0.0
 score_max: 1.0
