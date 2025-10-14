@@ -636,11 +636,11 @@ wheels = [
 
 [[package]]
 name = "osmosis-ai"
-version = "0.2.1"
+version = "0.2.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c0/ee/f15f73a5314cb56642dde826787969fdf31f78da13b21429bb859e810a27/osmosis_ai-0.2.1.tar.gz", hash = "sha256:6f56f9b54dd58fc9b1964a541916a964cda31944aae31f48e3444187b9c70b3b", size = 4801, upload-time = "2025-09-26T19:42:01.265Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/99/0c/326fe4727ad8aa4f5ec83f1e94ee270b4c1396b7307cecd27e0cacea57c3/osmosis_ai-0.2.2.tar.gz", hash = "sha256:08cbdbb0845f49d7d4bb5eff2a3b1a1fbd169eaf2d9c3bfdee4fd10317a1b749", size = 25726, upload-time = "2025-10-14T04:44:05.674941Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/1b/7346f8c7681d46783a77e7c2989e88ace44ef7f78f6d54b21c9cb0569f69/osmosis_ai-0.2.1-py3-none-any.whl", hash = "sha256:5561e7214db25f222e22f28e3c6f04d9f8c41fb46f60609e81dd5a0346537d8b", size = 5355, upload-time = "2025-09-26T19:42:00.078Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/0a/cc6a25c0f28a62039e2b8a1a85c5dd57cc6fecb6972240a7d0c3ff1ab2fd/osmosis_ai-0.2.2-py3-none-any.whl", hash = "sha256:a8645f94efc763e9b481afd17c7367f2d2395ef9c02f5c0cdf4e3d6b92ce130c", size = 29685, upload-time = "2025-10-14T04:44:04.232657Z" },
 ]
 
 [[package]]
@@ -656,7 +656,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fastmcp", specifier = ">=2.12.4" },
-    { name = "osmosis-ai", specifier = ">=0.2.1" },
+    { name = "osmosis-ai", specifier = ">=0.2.2" },
     { name = "rich", specifier = ">=14.1.0" },
 ]
 

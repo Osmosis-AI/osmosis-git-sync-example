@@ -11,6 +11,7 @@ on:
 jobs:
   run-reward-rubric:
     runs-on: ubuntu-latest
+    environment: osmosis-secrets
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -21,4 +22,15 @@ jobs:
       - name: Run reward rubric score
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: python reward_rubric/reward_rubric.py --config reward_rubric/reward_rubric_config.yaml
+        run: |
+          set -euo pipefail
+          python reward_rubric/reward_rubric.py --config reward_rubric/reward_rubric_config.yaml | tee reward_rubric_output.log
+          python - <<'PY'
+          import re
+          import sys
+
+          text = open("reward_rubric_output.log", encoding="utf-8").read()
+          if not re.search(r"score:\s*-?\d+(?:\.\d+)?", text):
+              sys.stderr.write("Reward rubric run did not produce a numeric score.\n")
+              sys.exit(1)
+          PY

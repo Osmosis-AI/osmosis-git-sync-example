@@ -42,7 +42,7 @@ def score_support_conversation(
     messages: List[Dict[str, Any]],
     ground_truth: Optional[str] = None,
     system_message: Optional[str] = None,
-    extra_info: Optional[Dict[str, Any]] = None,
+    extra_info: dict = None,
     score_min: float = SCORE_MIN,
     score_max: float = SCORE_MAX,
 ) -> float:
