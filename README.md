@@ -7,6 +7,18 @@ This repository demonstrates the layout and code artifacts that the Osmosis GitH
 - Python 3.12 (matches `pyproject.toml`)
 - Install project dependencies with `pip install .`; for editable installs use `pip install -e .` or `uv pip install .`
 
+## Quick Start
+
+```bash
+# Optional: create a virtual environment first
+pip install -e .           # install the package and dependencies
+python mcp/main.py &       # start the FastMCP server on 0.0.0.0:8080
+python mcp/test/test.py    # list the published tools
+./scripts/run_reward_rubric.sh  # run the rubric example (requires OPENAI_API_KEY)
+```
+
+Stop the MCP server with `Ctrl+C` when you are done, or pass `--host/--port` if you need to bind to a different interface.
+
 ## Repository Layout
 
 ```
@@ -44,7 +56,7 @@ osmosis-git-sync-example/
 
 - `main.py` starts the FastMCP HTTP transport (`python mcp/main.py`) and accepts `--host/--port`.
 - `server/mcp_server.py` instantiates `FastMCP("OsmosisTools")` and exposes a `/health` route.
-- `tools/__init__.py` auto-imports every `@mcp.tool` decorated function so the server exposes them.
+- `tools/__init__.py` exposes every `.py` module in the folder via `__all__`, so `from tools import *` eagerly loads each tool module.
 - Tool modules:
   - `math.multiply(first_val, second_val)` multiplies two numbers and rounds to four decimals.
   - `api_helpers.validate_api_request(...)` validates required/empty fields.
@@ -59,14 +71,15 @@ osmosis-git-sync-example/
 ### `reward_fn/` – Numeric reward functions
 
 - `compute_reward.py` implements `@osmosis_reward numbers_match_reward(...)`.
-  - `extract_solution` looks for answers after `####` and returns the numeric token.
-  - The reward converts both strings to floats and returns `1.0` when they match within `1e-7`, else `0.0`.
+  - `extract_solution` grabs the first numeric token that follows a markdown-style `####` heading and returns it as text.
+  - The reward converts the extracted token and ground truth to floats, awarding `1.0` when they match within `1e-7` and `0.0` otherwise (including extraction failures).
 
 ### `reward_rubric/` – Rubric-based scoring
 
 - `reward_rubric.py` defines `@osmosis_rubric score_support_conversation(...)`.
-  - Delegates scoring to `osmosis_ai.evaluate_rubric`, optionally capturing detailed metadata via `extra_info`.
-  - Provides a `main()` helper that loads `reward_rubric_example.json` and prints the score.
+  - Delegates scoring to `osmosis_ai.evaluate_rubric`, optionally capturing hosted-model metadata. When `extra_info["capture_details"]` is true the function stores the full response under `extra_info["result_details"]`.
+  - Supports passing supplementary prompt inputs through `extra_info["prompt_extra_info"]` if your caller wants to enrich the request payload.
+  - Provides a CLI (`python reward_rubric/reward_rubric.py`) that loads YAML config, JSON messages, and prints the score plus any returned explanation.
 - `reward_rubric_config.yaml` stores the rubric prompt, score range, ground truth summary, and default model info.
 - `reward_rubric_example.json` is a sample support conversation that can be evaluated locally.
 
@@ -126,14 +139,15 @@ python reward_rubric/reward_rubric.py \
   --no-capture-details  # optional
 ```
 
-Omit `--no-capture-details` to include the hosted model's explanation in the output. If the API key is missing, the script still produces descriptive error messages about the requirement.
+Omit `--no-capture-details` to include the hosted model's explanation in the output. If the API key is missing or the model/provider is unavailable, the CLI catches `MissingAPIKeyError`, `ModelNotFoundError`, and `ProviderRequestError` to surface actionable messages before exiting.
 
 ## Configuring CI/CD with GitHub Actions
 
-1. **Add the API key secret:** In your GitHub repository, open **Settings → Secrets and variables → Actions**, click **New repository secret**, name it `OPENAI_API_KEY`, and paste the same key you use locally. GitHub encrypts it and only exposes it to workflow runs.
-2. **Understand the workflow trigger:** `.github/workflows/reward_rubric.yml` runs automatically on pushes and pull requests that touch `reward_rubric/reward_rubric_config.yaml`, keeping rubric edits validated without running on unrelated changes.
-3. **Review the CI output:** After pushing a change, check the **Actions** tab. The job `Reward Rubric Score` installs dependencies, runs `python reward_rubric/reward_rubric.py --config reward_rubric/reward_rubric_config.yaml`, and surfaces success or failure details in the logs.
-4. **Re-run or trigger manually:** From the workflow run page you can click **Re-run jobs** to execute the latest code or secrets again. To test on demand, add a `workflow_dispatch` trigger so you can launch the job with the **Run workflow** button.
+1. **Review the workflow definition:** `.github/workflows/reward_rubric.yml` ships with this repo. It installs the package and runs the rubric scorer so you can see the current score each time the workflow executes.
+2. **Create the expected environment:** In your GitHub repository, open **Settings → Environments**, click **New environment**, and name it `osmosis-secrets` (the workflow references this environment).
+3. **Add environment secrets:** Inside the `osmosis-secrets` environment, use **Add environment secret** to provide the keys required for evaluation. For this example, set `OPENAI_API_KEY`. If you plan to exercise other hosted models, also add any of `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or `XAI_API_KEY`.
+4. **Understand the trigger:** Any push or pull request that modifies `reward_rubric/reward_rubric_config.yaml` automatically runs the workflow so you can check the revised score before merging the change.
+5. **Review and re-run:** After each run, open the **Actions** tab to inspect the job logs. Use **Re-run jobs** for the most recent commit, or add a `workflow_dispatch` trigger if you want to run the scorer on demand.
 
 ## How Osmosis syncs this repository
 
