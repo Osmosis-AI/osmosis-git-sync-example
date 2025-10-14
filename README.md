@@ -5,7 +5,7 @@ This repository demonstrates the layout and code artifacts that the Osmosis GitH
 ## Requirements
 
 - Python 3.12 (matches `pyproject.toml`)
-- Project dependencies from `requirements.txt` (`pip install -r requirements.txt`), or install in editable mode via `pip install -e .`/`uv pip install .`
+- Install project dependencies with `pip install .`; for editable installs use `pip install -e .` or `uv pip install .`
 
 ## Repository Layout
 
@@ -72,7 +72,7 @@ osmosis-git-sync-example/
 
 ### `.github/workflows/`
 
-- `reward_rubric.yml` runs the rubric scorer in GitHub Actions whenever `reward_rubric/reward_rubric_config.yaml` changes on a push or pull request. The job installs dependencies, injects an API key via secrets, and executes the rubric script so reviewers can see an automated score.
+- `reward_rubric.yml` runs the rubric scorer in GitHub Actions whenever `reward_rubric/reward_rubric_config.yaml` changes on a push or pull request. The job installs the package, injects an API key via secrets, and executes the rubric script so reviewers can see an automated score.
 
 ### `scripts/`
 
@@ -82,7 +82,7 @@ osmosis-git-sync-example/
 
 ```bash
 # From the repository root
-pip install -r requirements.txt
+pip install .
 # or install in editable mode
 pip install -e .
 # or, if you use uv
