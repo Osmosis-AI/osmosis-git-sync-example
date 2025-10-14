@@ -1,0 +1,14 @@
+rubric: >
+  Score how well the assistant resolves a smart appliance troubleshooting request.
+  Reward answers that confirm warranty eligibility, collect relevant diagnostics,
+  offer safe and actionable steps, and set clear expectations for follow-up
+  service. Penalize answers that ignore the user's constraints or invent.
+  unsupported policies.
+score_min: 0.0
+score_max: 1.0
+ground_truth: >
+  The assistant should verify the warranty, gather error diagnostics, provide
+  safe troubleshooting steps, and schedule timely service if needed.
+default_model_info:
+  provider: openai
+  model: gpt-5-mini
