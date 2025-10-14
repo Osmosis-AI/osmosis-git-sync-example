@@ -123,7 +123,11 @@ def main() -> None:
     messages_payload: Dict[str, Any] = _load_messages(args.messages)
 
     messages: List[Dict[str, Any]] = messages_payload["messages"]
-    rubric_text: str = config["rubric"]
+    rubric_text_value = config.get("rubric")
+    if not rubric_text_value:
+        print(f"Error: 'rubric' key not found in config file: {args.config}")
+        raise SystemExit(1)
+    rubric_text: str = str(rubric_text_value)
     score_min: float = float(config.get("score_min", SCORE_MIN))
     score_max: float = float(config.get("score_max", SCORE_MAX))
     ground_truth: Optional[str] = config.get("ground_truth")
