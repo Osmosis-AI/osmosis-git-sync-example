@@ -2,8 +2,9 @@ name: Reward Rubric Score
 
 on:
   push:
-    branches:
-      - main
+    paths:
+      - "reward_rubric/reward_rubric_config.yaml"
+  pull_request:
     paths:
       - "reward_rubric/reward_rubric_config.yaml"
 
