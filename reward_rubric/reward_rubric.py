@@ -31,6 +31,10 @@ def score_support_conversation(
 ) -> float:
     """Delegate rubric scoring to a hosted model while keeping @osmosis_rubric validation."""
     extra = extra_info or {}
+    required_keys = ["rubric", "provider", "model", "api_key", "api_key_env", "score_min", "score_max"]
+    for key in required_keys:
+        if key not in extra:
+            raise CLIError(f"Missing required key '{key}' in extra_info.")
     provider = extra.get("provider")
     model_name = extra.get("model")
     api_key = extra.get("api_key")
@@ -149,8 +153,12 @@ def run_example(
     extra_info = _build_extra_info(config, record, capture_details)
 
     ground_truth = _normalize_text(record.ground_truth or config.ground_truth)
+    if not ground_truth:
+        raise CLIError("Ground truth cannot be empty after normalization.")
     solution_str = _normalize_text(record.solution_str)
-    
+    if not solution_str:
+        raise CLIError("Solution string cannot be empty after normalization.")
+
     score = score_support_conversation(
         solution_str=solution_str,
         ground_truth=ground_truth,
