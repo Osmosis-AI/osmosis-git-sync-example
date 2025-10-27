@@ -88,7 +88,7 @@ osmosis-git-sync-example/
 
 - Mirrors the Osmosis CLI format (`rubric_id`, `conversation_id`, `solution_str`, etc.). Use it with `osmosis preview --path reward_rubric/sample_data.jsonl` or `osmosis eval --data reward_rubric/sample_data.jsonl` whenever you need dataset-driven smoke tests.
 
-### `.github/workflows/` 
+### `.github/workflows/`
 
 - `reward_rubric.yml` runs the rubric scorer in GitHub Actions whenever `reward_rubric/reward_rubric.py` or `reward_rubric/reward_rubric_example.json` changes on a push or pull request. The job installs the package, injects an API key via secrets, and executes the rubric script so reviewers can see an automated score.
 
