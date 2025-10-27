@@ -83,7 +83,7 @@ osmosis-git-sync-example/
 - `reward_rubric_config.yaml` stores the rubric prompt, score range, ground truth summary, and default model info.
 - `reward_rubric_example.json` is a sample support conversation that can be evaluated locally.
 
-### `.github/workflows/` 
+### `.github/workflows/`
 
 - `reward_rubric.yml` runs the rubric scorer in GitHub Actions whenever `reward_rubric/reward_rubric_config.yaml` changes on a push or pull request. The job installs the package, injects an API key via secrets, and executes the rubric script so reviewers can see an automated score.
 
