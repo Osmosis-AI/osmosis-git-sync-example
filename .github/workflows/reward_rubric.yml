@@ -24,7 +24,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           set -euo pipefail
-          python reward_rubric/reward_rubric.py --config reward_rubric/reward_rubric_config.yaml | tee reward_rubric_output.log
+          ./scripts/run_reward_rubric.sh | tee reward_rubric_output.log
           python - <<'PY'
           import re
           import sys
