@@ -1,169 +1,192 @@
 from __future__ import annotations
 
-import argparse
-import json
+import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
-import yaml
+from osmosis_ai import evaluate_rubric, osmosis_rubric
+from osmosis_ai.cli_services import CLIError, RubricConfig, load_rubric_suite
+from osmosis_ai.cli_services.dataset import DatasetLoader, DatasetRecord
+from osmosis_ai.rubric_eval import DEFAULT_API_KEY_ENV as PROVIDER_API_KEY_ENV
+from osmosis_ai.rubric_types import MissingAPIKeyError
 
-from osmosis_ai import (
-    MissingAPIKeyError,
-    ModelNotFoundError,
-    ProviderRequestError,
-    evaluate_rubric,
-    osmosis_rubric,
-)
+SCORE_MIN = 0.0
+SCORE_MAX = 1.0
+DEFAULT_PROVIDER_API_KEY_ENV = "OPENAI_API_KEY"
 
-CONFIG_PATH: Path = Path(__file__).with_name("reward_rubric_config.yaml")
-MESSAGES_PATH: Path = Path(__file__).with_name("reward_rubric_example.json")
-
-
-def _load_config(config_path: Path = CONFIG_PATH) -> Dict[str, Any]:
-    with config_path.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle)
+DEFAULT_CONFIG_PATH = Path(__file__).with_name("reward_rubric_config.yaml")
+DEFAULT_DATA_PATH = Path(__file__).with_name("sample_data.jsonl")
+DEFAULT_RUBRIC_ID = "support_followup"
 
 
-_CONFIG: Dict[str, Any] = _load_config()
-
-RUBRIC: str = _CONFIG["rubric"]
-SCORE_MIN: float = float(_CONFIG.get("score_min", 0.0))
-SCORE_MAX: float = float(_CONFIG.get("score_max", 1.0))
-GROUND_TRUTH: str = _CONFIG["ground_truth"]
-DEFAULT_MODEL_INFO: Dict[str, str] = dict(
-    _CONFIG.get("default_model_info", {"provider": "openai", "model": "gpt-5-mini"})
-)
+def _normalize_text(value: Any) -> str:
+    return value.strip() if isinstance(value, str) else ""
 
 
 @osmosis_rubric
 def score_support_conversation(
-    model_info: Dict[str, Any],
-    rubric: str,
-    messages: List[Dict[str, Any]],
-    ground_truth: Optional[str] = None,
-    system_message: Optional[str] = None,
-    extra_info: dict = None,
-    score_min: float = SCORE_MIN,
-    score_max: float = SCORE_MAX,
+    solution_str: str,
+    ground_truth: str,
+    extra_info: Dict[str, Any],
 ) -> float:
-    """Score a support conversation against the rubric using a hosted model.
+    """Delegate rubric scoring to a hosted model while keeping @osmosis_rubric validation."""
+    extra = extra_info or {}
+    required_keys = ["rubric", "provider", "model", "api_key", "api_key_env", "score_min", "score_max"]
+    for key in required_keys:
+        if key not in extra:
+            raise CLIError(f"Missing required key '{key}' in extra_info.")
+    provider = extra.get("provider")
+    model_name = extra.get("model")
+    api_key = extra.get("api_key")
+    api_key_env = extra.get("api_key_env") or DEFAULT_PROVIDER_API_KEY_ENV
+    model_settings = dict(extra.get("model_settings") or {})
+    capture_details = bool(extra.get("capture_details"))
 
-    The @osmosis_rubric decorator validates the inputs and integrates with the
-    Osmosis platform. This helper forwards the scoring request to
-    ``osmosis_ai.evaluate_rubric`` and returns the numeric score.
+    model_info = dict(model_settings)
+    model_info["provider"] = provider
+    model_info["model"] = model_name
+    model_info["api_key"] = api_key
+    model_info["api_key_env"] = api_key_env
 
-    Args:
-        model_info: Provider and model configuration used for evaluation.
-        rubric: Rubric text that defines the evaluation criteria.
-        messages: Conversation messages to score.
-        ground_truth: Optional expected outcome used in rubric evaluation.
-        system_message: Optional system prompt to include in the request.
-        extra_info: Mutable metadata passed through the evaluation pipeline. If
-            ``capture_details`` is set to True, this dictionary is updated in
-            place with a ``result_details`` entry containing the full response
-            payload from the hosted model.
-        score_min: Lower bound for the score range.
-        score_max: Upper bound for the score range.
+    try:
+        result = evaluate_rubric(
+            rubric=extra.get("rubric"),
+            solution_str=solution_str,
+            model_info=model_info,
+            ground_truth=ground_truth,
+            metadata=extra.get("metadata"),
+            score_min=extra.get("score_min"),
+            score_max=extra.get("score_max"),
+            return_details=capture_details,
+        )
+    except MissingAPIKeyError as exc:
+        provider_label = provider or "provider"
+        raise CLIError(
+            f"Missing API key for provider '{provider_label}'. "
+            f"Set environment variable '{api_key_env}' or include 'api_key' in the rubric config."
+        ) from exc
 
-    Returns:
-        float: The evaluated score within ``score_min`` and ``score_max``.
-    """
-    if extra_info is None:
-        extra_info = {}
-
-    capture_details = bool(extra_info.get("capture_details"))
-    prompt_extra = extra_info.get("prompt_extra_info")
-
-    result = evaluate_rubric(
-        rubric=rubric,
-        messages=messages,
-        model_info=model_info,
-        ground_truth=ground_truth,
-        system_message=system_message,
-        extra_info=prompt_extra,
-        score_min=score_min,
-        score_max=score_max,
-        return_details=capture_details,
-    )
-
-    if capture_details and isinstance(result, dict):
-        extra_info["result_details"] = result
+    if capture_details:
+        extra["result_details"] = result
         return float(result["score"])
 
     return float(result)
 
 
-def _load_messages(messages_path: Path = MESSAGES_PATH) -> Dict[str, Any]:
-    with messages_path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+def _build_extra_info(
+    config: RubricConfig,
+    record: DatasetRecord,
+    capture_details: bool,
+) -> Dict[str, Any]:
+    model_info = config.model_info or {}
+    provider = model_info.get("provider")
+    model_name = model_info.get("model")
+    api_key = model_info.get("api_key")
+    api_key_env = model_info.get("api_key_env")
+
+    if not api_key_env and provider:
+        api_key_env = PROVIDER_API_KEY_ENV.get(provider.lower())
+    api_key_env = api_key_env or DEFAULT_PROVIDER_API_KEY_ENV
+
+    api_key_value = api_key or os.getenv(api_key_env)
+
+    extra: Dict[str, Any] = {
+        "capture_details": capture_details,
+        "rubric": config.rubric_text,
+        "provider": provider,
+        "model": model_name,
+        "api_key": api_key_value,
+        "api_key_env": api_key_env,
+        "score_min": float(config.score_min) if config.score_min is not None else SCORE_MIN,
+        "score_max": float(config.score_max) if config.score_max is not None else SCORE_MAX,
+    }
+
+    original_input = record.original_input or config.original_input
+    if original_input and "original_input" not in extra:
+        extra["original_input"] = original_input
+
+    if record.metadata and "metadata" not in extra:
+        extra["metadata"] = record.metadata
+
+    return extra
+
+
+def run_example(
+    *,
+    config_path: Path = DEFAULT_CONFIG_PATH,
+    data_path: Path = DEFAULT_DATA_PATH,
+    rubric_id: str = DEFAULT_RUBRIC_ID,
+    conversation_id: str | None = None,
+    capture_details: bool = True,
+) -> tuple[float, Dict[str, Any]]:
+    suite = load_rubric_suite(config_path)
+    config = suite.get(rubric_id)
+    loader = DatasetLoader()
+    suffix = data_path.suffix.lower()
+    normalized_rubric = rubric_id.strip()
+    normalized_conversation = conversation_id.strip() if conversation_id else ""
+
+    if suffix != ".jsonl":
+        raise CLIError(f"Unsupported data file '{data_path}'. Provide a JSONL dataset.")
+
+    records = loader.load(data_path)
+
+    matching_records = []
+    for record in records:
+        record_rubric = record.rubric_id.strip() if isinstance(record.rubric_id, str) else ""
+        if normalized_rubric and record_rubric and record_rubric != normalized_rubric:
+            continue
+        record_conversation = record.conversation_id.strip() if isinstance(record.conversation_id, str) else ""
+        if normalized_conversation and record_conversation != normalized_conversation:
+            continue
+        matching_records.append(record)
+
+    if normalized_conversation and not matching_records:
+        raise CLIError(
+            f"No conversation '{conversation_id}' found for rubric '{rubric_id}' in '{data_path}'."
+        )
+    if not matching_records:
+        raise CLIError(f"No records found for rubric '{rubric_id}' in '{data_path}'.")
+
+    record = matching_records[0]
+
+    extra_info = _build_extra_info(config, record, capture_details)
+
+    ground_truth = _normalize_text(record.ground_truth or config.ground_truth)
+    if not ground_truth:
+        raise CLIError("Ground truth cannot be empty after normalization.")
+    solution_str = _normalize_text(record.solution_str)
+    if not solution_str:
+        raise CLIError("Solution string cannot be empty after normalization.")
+
+    score = score_support_conversation(
+        solution_str=solution_str,
+        ground_truth=ground_truth,
+        extra_info=extra_info,
+    )
+
+    return score, extra_info
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the reward rubric scorer locally.")
-    parser.add_argument(
-        "--config",
-        type=Path,
-        default=CONFIG_PATH,
-        help="Path to a reward rubric YAML config file.",
-    )
-    parser.add_argument(
-        "--messages",
-        type=Path,
-        default=MESSAGES_PATH,
-        help="Path to a JSON file containing the conversation messages.",
-    )
-    parser.add_argument(
-        "--no-capture-details",
-        action="store_true",
-        help="Disable detailed rubric output in the console.",
-    )
-    args = parser.parse_args()
-
-    config = _load_config(args.config)
-    messages_payload: Dict[str, Any] = _load_messages(args.messages)
-
-    messages: List[Dict[str, Any]] = messages_payload["messages"]
-    rubric_text_value = config.get("rubric")
-    if not rubric_text_value:
-        print(f"Error: 'rubric' key not found in config file: {args.config}")
-        raise SystemExit(1)
-    rubric_text: str = str(rubric_text_value)
-    score_min: float = float(config.get("score_min", SCORE_MIN))
-    score_max: float = float(config.get("score_max", SCORE_MAX))
-    ground_truth: Optional[str] = config.get("ground_truth")
-    model_info: Dict[str, Any] = dict(config.get("default_model_info", DEFAULT_MODEL_INFO))
-    capture_details = not args.no_capture_details
-    extra_info: Dict[str, Any] = {"capture_details": capture_details, "prompt_extra_info": None}
-
     try:
-        score_value = score_support_conversation(
-            model_info=model_info,
-            rubric=rubric_text,
-            messages=messages,
-            ground_truth=ground_truth,
-            system_message=None,
-            extra_info=extra_info,
-            score_min=score_min,
-            score_max=score_max,
-        )
+        score_value, extra_info = run_example()
+    except (CLIError, OSError, ValueError, TypeError) as exc:
+        print(f"Reward rubric example failed: {exc}")
+        raise SystemExit(1) from exc
 
-        print(f"OpenAI score: {score_value:.2f} (range {score_min}-{score_max})")
+    provider_label = extra_info.get("provider", "provider")
+    model_label = extra_info.get("model")
+    score_min = extra_info.get("score_min", SCORE_MIN)
+    score_max = extra_info.get("score_max", SCORE_MAX)
+    model_suffix = f" {model_label}" if model_label else ""
+    print(f"{provider_label}{model_suffix} score: {score_value:.2f} (range {score_min}-{score_max})")
 
-        if capture_details:
-            result_details = extra_info.get("result_details") or {}
-            explanation = result_details.get("explanation", "") if isinstance(result_details, dict) else ""
-            if explanation:
-                print(f"OpenAI explanation: {explanation}")
-    except MissingAPIKeyError as exc:
-        print(f"OpenAI example skipped: {exc}")
-        raise SystemExit(1)
-    except ModelNotFoundError as exc:
-        print(f"OpenAI example skipped: {exc.detail}")
-        raise SystemExit(1)
-    except ProviderRequestError as exc:
-        print(f"OpenAI example failed: {exc.detail}")
-        raise SystemExit(1)
-
+    details = extra_info.get("result_details") or {}
+    if isinstance(details, dict):
+        explanation = details.get("explanation")
+        if isinstance(explanation, str) and explanation.strip():
+            print(f"Explanation: {explanation.strip()}")
 
 if __name__ == "__main__":
     main()

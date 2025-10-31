@@ -40,7 +40,8 @@ osmosis-git-sync-example/
 ├── reward_rubric/
 │   ├── reward_rubric.py
 │   ├── reward_rubric_config.yaml
-│   └── reward_rubric_example.json
+│   ├── reward_rubric_example.json
+│   └── sample_data.jsonl
 ├── .github/
 │   └── workflows/
 │       └── reward_rubric.yml
@@ -76,20 +77,24 @@ osmosis-git-sync-example/
 
 ### `reward_rubric/` – Rubric-based scoring
 
-- `reward_rubric.py` defines `@osmosis_rubric score_support_conversation(...)`.
-  - Delegates scoring to `osmosis_ai.evaluate_rubric`, optionally capturing hosted-model metadata. When `extra_info["capture_details"]` is true the function stores the full response under `extra_info["result_details"]`.
-  - Supports passing supplementary prompt inputs through `extra_info["prompt_extra_info"]` if your caller wants to enrich the request payload.
-  - Provides a CLI (`python reward_rubric/reward_rubric.py`) that loads YAML config, JSON messages, and prints the score plus any returned explanation.
-- `reward_rubric_config.yaml` stores the rubric prompt, score range, ground truth summary, and default model info.
-- `reward_rubric_example.json` is a sample support conversation that can be evaluated locally.
+- `reward_rubric.py` defines `@osmosis_rubric score_support_conversation(solution_str, ground_truth, extra_info)`. Supply the rubric text, provider/model identifiers, the assistant reply (`solution_str`), and any optional knobs inside `extra_info`; conversation messages are optional and reconstructed when omitted.
+- Delegates scoring to `osmosis_ai.evaluate_rubric`, optionally capturing hosted-model metadata. When `extra_info["capture_details"]` is true the function stores the full response under `extra_info["result_details"]`.
+- Use `scripts/run_reward_rubric.sh` to load the sample config and solution, then call the rubric entrypoint without any argparse wrapper.
+- `reward_rubric_config.yaml` follows the versioned Osmosis schema (with `version`, `default_*` keys, and `rubrics[]`) and remains available if you want to exercise the official `osmosis` CLI.
+- `reward_rubric_example.json` is a sample support response (solution string plus optional context) that can be evaluated locally.
+- `sample_data.jsonl` contains JSONL fixtures that pair well with `osmosis preview --path reward_rubric/sample_data.jsonl` if you would like to inspect or score batched conversations with the hosted CLI.
 
-### `.github/workflows/` 
+### `sample_data.jsonl` – Rubric dataset
 
-- `reward_rubric.yml` runs the rubric scorer in GitHub Actions whenever `reward_rubric/reward_rubric_config.yaml` changes on a push or pull request. The job installs the package, injects an API key via secrets, and executes the rubric script so reviewers can see an automated score.
+- Mirrors the Osmosis CLI format (`rubric_id`, `conversation_id`, `solution_str`, etc.). Use it with `osmosis preview --path reward_rubric/sample_data.jsonl` or `osmosis eval --data reward_rubric/sample_data.jsonl` whenever you need dataset-driven smoke tests.
+
+### `.github/workflows/`
+
+- `reward_rubric.yml` runs the rubric scorer in GitHub Actions whenever `reward_rubric/reward_rubric.py` or `reward_rubric/reward_rubric_example.json` changes on a push or pull request. The job installs the package, injects an API key via secrets, and executes the rubric script so reviewers can see an automated score.
 
 ### `scripts/`
 
-- `run_reward_rubric.sh` runs the rubric example (`python reward_rubric/reward_rubric.py --config ...`). Ensure `OPENAI_API_KEY` (or another provider key supported by `osmosis_ai`) is available in the environment before executing.
+- `run_reward_rubric.sh` loads the YAML preset and JSON example, then calls `reward_rubric.score_support_conversation(solution_str, ground_truth, extra_info)`. Ensure `OPENAI_API_KEY` (or another provider key supported by `osmosis_ai`) is available in the environment before executing.
 
 ## Installing dependencies
 
@@ -130,23 +135,29 @@ export OPENAI_API_KEY=sk-your-key
 ./scripts/run_reward_rubric.sh
 ```
 
-The script passes the default config file, but the scorer now accepts additional flags:
+Make sure `osmosis-ai` is installed (run `pip install --upgrade osmosis-ai` if needed). The script passes the built-in preset, but you can supply alternate solution payloads interactively:
 
 ```bash
-python reward_rubric/reward_rubric.py \
-  --config path/to/custom_config.yaml \
-  --messages path/to/messages.json \
-  --no-capture-details  # optional
+# Point to a different solution payload
+./scripts/run_reward_rubric.sh --data path/to/your_solution.json
 ```
 
-Omit `--no-capture-details` to include the hosted model's explanation in the output. If the API key is missing or the model/provider is unavailable, the CLI catches `MissingAPIKeyError`, `ModelNotFoundError`, and `ProviderRequestError` to surface actionable messages before exiting.
+To sanity-check rubric assets without writing Python, install the SDK and use the bundled CLI:
+
+```bash
+osmosis preview --path reward_rubric/reward_rubric_config.yaml
+osmosis preview --path reward_rubric/sample_data.jsonl
+osmosis eval --rubric support_followup --data reward_rubric/sample_data.jsonl --config reward_rubric/reward_rubric_config.yaml
+```
+
+The helper script prints a one-line score summary. If you need detailed hosted-model output (explanations, metadata, etc.), run your own Python shell and call `score_support_conversation` with `extra_info["capture_details"] = True`.
 
 ## Configuring CI/CD with GitHub Actions
 
 1. **Review the workflow definition:** `.github/workflows/reward_rubric.yml` ships with this repo. It installs the package and runs the rubric scorer so you can see the current score each time the workflow executes.
 2. **Create the expected environment:** In your GitHub repository, open **Settings → Environments**, click **New environment**, and name it `osmosis-secrets` (the workflow references this environment).
 3. **Add environment secrets:** Inside the `osmosis-secrets` environment, use **Add environment secret** to provide the keys required for evaluation. For this example, set `OPENAI_API_KEY`. If you plan to exercise other hosted models, also add any of `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or `XAI_API_KEY`.
-4. **Understand the trigger:** Any push or pull request that modifies `reward_rubric/reward_rubric_config.yaml` automatically runs the workflow so you can check the revised score before merging the change.
+4. **Understand the trigger:** Any push or pull request that modifies `reward_rubric/reward_rubric.py` or `reward_rubric/reward_rubric_example.json` automatically runs the workflow so you can check the revised score before merging the change.
 5. **Review and re-run:** After each run, open the **Actions** tab to inspect the job logs. Use **Re-run jobs** for the most recent commit, or add a `workflow_dispatch` trigger if you want to run the scorer on demand.
 
 ## How Osmosis syncs this repository
