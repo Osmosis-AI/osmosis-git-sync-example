@@ -9,7 +9,7 @@ def extract_solution(solution_str):
     return final_solution
 
 @osmosis_reward
-def numbers_match_reward(solution_str: str, ground_truth: str, extra_info: dict=None):
+def numbers_match_reward(solution_str: str, ground_truth: str, extra_info: dict=None, **kwargs):
     extracted = extract_solution(solution_str)
     try:
         sol_val = float(extracted)
