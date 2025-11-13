@@ -5,15 +5,15 @@ from osmosis_ai import (
 import os
 
 # make life easier by hardcoding the rubric, score range and model info
-RUBRIC = "Reward based on whether the predicted numerical value matches the ground truth. Only respond with a single number between 0 and 1."
+RUBRIC = "Reward based on whether the predicted numerical value matches the ground truth."
 SCORE_MIN = 0.0
 SCORE_MAX = 1.0
-PROVIDER = "anthropic"
-MODEL = "claude-sonnet-4-5-20250929"
-API_KEY = os.getenv("ANTHROPIC_API_KEY")
+PROVIDER = "xai"
+MODEL = "grok-4-fast-non-reasoning"
+API_KEY = os.getenv("XAI_API_KEY")
 
 @osmosis_rubric
-def compute_rubric_score_anthropic(
+def compute_rubric_score_xai(
     solution_str: str,
     ground_truth: str,
     extra_info: dict,
