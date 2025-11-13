@@ -14,7 +14,9 @@ This repository demonstrates the layout and code artifacts that the Osmosis GitH
 pip install -e .           # install the package and dependencies
 python mcp/main.py &       # start the FastMCP server on 0.0.0.0:8080
 python mcp/test/test.py    # list the published tools
-./scripts/run_reward_rubric.sh  # run the rubric example (requires OPENAI_API_KEY)
+./scripts/run_reward_rubric_openai.sh  # run the OpenAI rubric example (requires OPENAI_API_KEY)
+# or
+./scripts/run_reward_rubric_anthropic.sh  # run the Anthropic rubric example (requires ANTHROPIC_API_KEY)
 ```
 
 Stop the MCP server with `Ctrl+C` when you are done, or pass `--host/--port` if you need to bind to a different interface.
@@ -38,15 +40,14 @@ osmosis-git-sync-example/
 ├── reward_fn/
 │   └── compute_reward.py
 ├── reward_rubric/
-│   ├── reward_rubric.py
-│   ├── reward_rubric_config.yaml
-│   ├── reward_rubric_example.json
-│   └── sample_data.jsonl
+│   ├── reward_rubric_anthropic.py
+│   └── reward_rubric_openai.py
 ├── .github/
 │   └── workflows/
 │       └── reward_rubric.yml
 ├── scripts/
-│   └── run_reward_rubric.sh
+│   ├── run_reward_rubric_anthropic.sh
+│   └── run_reward_rubric_openai.sh
 ├── LICENSE.md
 ├── pyproject.toml
 ├── uv.lock
@@ -77,24 +78,25 @@ osmosis-git-sync-example/
 
 ### `reward_rubric/` – Rubric-based scoring
 
-- `reward_rubric.py` defines `@osmosis_rubric score_support_conversation(solution_str, ground_truth, extra_info)`. Supply the rubric text, provider/model identifiers, the assistant reply (`solution_str`), and any optional knobs inside `extra_info`; conversation messages are optional and reconstructed when omitted.
-- Delegates scoring to `osmosis_ai.evaluate_rubric`, optionally capturing hosted-model metadata. When `extra_info["capture_details"]` is true the function stores the full response under `extra_info["result_details"]`.
-- Use `scripts/run_reward_rubric.sh` to load the sample config and solution, then call the rubric entrypoint without any argparse wrapper.
-- `reward_rubric_config.yaml` follows the versioned Osmosis schema (with `version`, `default_*` keys, and `rubrics[]`) and remains available if you want to exercise the official `osmosis` CLI.
-- `reward_rubric_example.json` is a sample support response (solution string plus optional context) that can be evaluated locally.
-- `sample_data.jsonl` contains JSONL fixtures that pair well with `osmosis preview --path reward_rubric/sample_data.jsonl` if you would like to inspect or score batched conversations with the hosted CLI.
+This folder contains simplified, provider-specific rubric scoring examples that demonstrate how to use `@osmosis_rubric` with different LLM providers:
 
-### `sample_data.jsonl` – Rubric dataset
+- **`reward_rubric_anthropic.py`** – Uses Anthropic's Claude (claude-sonnet-4-5-20250929) for rubric evaluation. Requires `ANTHROPIC_API_KEY` environment variable.
+- **`reward_rubric_openai.py`** – Uses OpenAI's GPT (gpt-5-mini) for rubric evaluation. Requires `OPENAI_API_KEY` environment variable.
 
-- Mirrors the Osmosis CLI format (`rubric_id`, `conversation_id`, `solution_str`, etc.). Use it with `osmosis preview --path reward_rubric/sample_data.jsonl` or `osmosis eval --data reward_rubric/sample_data.jsonl` whenever you need dataset-driven smoke tests.
+Both files:
+- Define an `@osmosis_rubric` decorated function that delegates scoring to `osmosis_ai.evaluate_rubric`
+- Use hardcoded rubric text, score ranges (0.0-1.0), and model configurations for simplicity
+- Can be imported and called directly in your Python code or executed as standalone modules
+- Accept `solution_str` (the text to evaluate), `ground_truth` (reference answer), and `extra_info` (metadata dictionary)
 
 ### `.github/workflows/`
 
-- `reward_rubric.yml` runs the rubric scorer in GitHub Actions whenever `reward_rubric/reward_rubric.py` or `reward_rubric/reward_rubric_example.json` changes on a push or pull request. The job installs the package, injects an API key via secrets, and executes the rubric script so reviewers can see an automated score.
+- `reward_rubric.yml` runs the rubric scorers in GitHub Actions whenever files in `reward_rubric/` change on a push or pull request. The job installs the package, injects API keys via secrets, and executes both rubric scripts so reviewers can see automated scores from multiple providers.
 
 ### `scripts/`
 
-- `run_reward_rubric.sh` loads the YAML preset and JSON example, then calls `reward_rubric.score_support_conversation(solution_str, ground_truth, extra_info)`. Ensure `OPENAI_API_KEY` (or another provider key supported by `osmosis_ai`) is available in the environment before executing.
+- `run_reward_rubric_openai.sh` executes the OpenAI-based rubric scorer. Ensure `OPENAI_API_KEY` is available in the environment before executing.
+- `run_reward_rubric_anthropic.sh` executes the Anthropic-based rubric scorer. Ensure `ANTHROPIC_API_KEY` is available in the environment before executing.
 
 ## Installing dependencies
 
@@ -128,36 +130,58 @@ python mcp/test/test.py
 
 The script connects to `http://0.0.0.0:8080/mcp`, confirms the session, and lists the registered tools.
 
-## Running the reward rubric example
+## Running the reward rubric examples
+
+Make sure `osmosis-ai` is installed (run `pip install --upgrade osmosis-ai` if needed).
+
+### Using OpenAI (GPT)
 
 ```bash
 export OPENAI_API_KEY=sk-your-key
-./scripts/run_reward_rubric.sh
+./scripts/run_reward_rubric_openai.sh
 ```
 
-Make sure `osmosis-ai` is installed (run `pip install --upgrade osmosis-ai` if needed). The script passes the built-in preset, but you can supply alternate solution payloads interactively:
+Or call the function directly in Python:
+
+```python
+from reward_rubric.reward_rubric_openai import compute_rubric_score_openai
+
+score = compute_rubric_score_openai(
+    solution_str="The predicted value is 42",
+    ground_truth="42",
+    extra_info={"metadata": {"context": "test"}}
+)
+print(f"Score: {score}")
+```
+
+### Using Anthropic (Claude)
 
 ```bash
-# Point to a different solution payload
-./scripts/run_reward_rubric.sh --data path/to/your_solution.json
+export ANTHROPIC_API_KEY=sk-ant-your-key
+./scripts/run_reward_rubric_anthropic.sh
 ```
 
-To sanity-check rubric assets without writing Python, install the SDK and use the bundled CLI:
+Or call the function directly in Python:
 
-```bash
-osmosis preview --path reward_rubric/reward_rubric_config.yaml
-osmosis preview --path reward_rubric/sample_data.jsonl
-osmosis eval --rubric support_followup --data reward_rubric/sample_data.jsonl --config reward_rubric/reward_rubric_config.yaml
+```python
+from reward_rubric.reward_rubric_anthropic import compute_rubric_score_anthropic
+
+score = compute_rubric_score_anthropic(
+    solution_str="The predicted value is 42",
+    ground_truth="42",
+    extra_info={"metadata": {"context": "test"}}
+)
+print(f"Score: {score}")
 ```
 
-The helper script prints a one-line score summary. If you need detailed hosted-model output (explanations, metadata, etc.), run your own Python shell and call `score_support_conversation` with `extra_info["capture_details"] = True`.
+Both scripts will evaluate whether the solution matches the ground truth and return a score between 0.0 and 1.0.
 
 ## Configuring CI/CD with GitHub Actions
 
-1. **Review the workflow definition:** `.github/workflows/reward_rubric.yml` ships with this repo. It installs the package and runs the rubric scorer so you can see the current score each time the workflow executes.
+1. **Review the workflow definition:** `.github/workflows/reward_rubric.yml` ships with this repo. It installs the package and runs the rubric scorers so you can see the current scores each time the workflow executes.
 2. **Create the expected environment:** In your GitHub repository, open **Settings → Environments**, click **New environment**, and name it `osmosis-secrets` (the workflow references this environment).
-3. **Add environment secrets:** Inside the `osmosis-secrets` environment, use **Add environment secret** to provide the keys required for evaluation. For this example, set `OPENAI_API_KEY`. If you plan to exercise other hosted models, also add any of `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, or `XAI_API_KEY`.
-4. **Understand the trigger:** Any push or pull request that modifies `reward_rubric/reward_rubric.py` or `reward_rubric/reward_rubric_example.json` automatically runs the workflow so you can check the revised score before merging the change.
+3. **Add environment secrets:** Inside the `osmosis-secrets` environment, use **Add environment secret** to provide the keys required for evaluation. Add both `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` to test both providers. You can also add `GOOGLE_API_KEY` or `XAI_API_KEY` if you plan to extend the examples.
+4. **Understand the trigger:** Any push or pull request that modifies files in `reward_rubric/` automatically runs the workflow so you can check the revised scores before merging the change.
 5. **Review and re-run:** After each run, open the **Actions** tab to inspect the job logs. Use **Re-run jobs** for the most recent commit, or add a `workflow_dispatch` trigger if you want to run the scorer on demand.
 
 ## How Osmosis syncs this repository
