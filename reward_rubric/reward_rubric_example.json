@@ -1,5 +1,0 @@
-{
-  "solution_str": "Thanks, that order is covered. Please power it off at the breaker for five minutes, then reseat the ribbon cable behind the control panel. If the error returns, I can get a technician tomorrow morning - does that fit your timing?",
-  "original_input": "My smart oven keeps throwing an F9 error and I need it fixed before hosting dinner tonight. What should I do?",
-  "ground_truth": "The assistant should verify the warranty, gather error diagnostics, provide safe troubleshooting steps, and schedule timely service if needed."
-}

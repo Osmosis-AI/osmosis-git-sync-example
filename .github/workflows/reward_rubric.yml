@@ -3,13 +3,15 @@ name: Reward Rubric Score
 on:
   push:
     paths:
-      - "reward_rubric/reward_rubric_config.yaml"
+      - "reward_rubric/**"
+      - "scripts/run_reward_rubric_*.sh"
   pull_request:
     paths:
-      - "reward_rubric/reward_rubric_config.yaml"
+      - "reward_rubric/**"
+      - "scripts/run_reward_rubric_*.sh"
 
 jobs:
-  run-reward-rubric:
+  run-reward-rubric-openai:
     runs-on: ubuntu-latest
     environment: osmosis-secrets
     steps:
@@ -19,18 +21,44 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install .
-      - name: Run reward rubric score
+      - name: Run OpenAI reward rubric score
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           set -euo pipefail
-          ./scripts/run_reward_rubric.sh | tee reward_rubric_output.log
+          ./scripts/run_reward_rubric_openai.sh | tee reward_rubric_openai_output.log
           python - <<'PY'
           import re
           import sys
 
-          text = open("reward_rubric_output.log", encoding="utf-8").read()
+          text = open("reward_rubric_openai_output.log", encoding="utf-8").read()
           if not re.search(r"score:\s*-?\d+(?:\.\d+)?", text):
-              sys.stderr.write("Reward rubric run did not produce a numeric score.\n")
+              sys.stderr.write("OpenAI reward rubric run did not produce a numeric score.\n")
+              sys.exit(1)
+          PY
+
+  run-reward-rubric-anthropic:
+    runs-on: ubuntu-latest
+    environment: osmosis-secrets
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install .
+      - name: Run Anthropic reward rubric score
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          ./scripts/run_reward_rubric_anthropic.sh | tee reward_rubric_anthropic_output.log
+          python - <<'PY'
+          import re
+          import sys
+
+          text = open("reward_rubric_anthropic_output.log", encoding="utf-8").read()
+          if not re.search(r"score:\s*-?\d+(?:\.\d+)?", text):
+              sys.stderr.write("Anthropic reward rubric run did not produce a numeric score.\n")
               sys.exit(1)
           PY
