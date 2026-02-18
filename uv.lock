@@ -1176,7 +1176,7 @@ wheels = [
 
 [[package]]
 name = "osmosis-ai"
-version = "0.2.15"
+version = "0.2.17"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -1187,9 +1187,9 @@ dependencies = [
     { name = "requests" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/30/12/b9342c0c773a8ba3ac76bb7a4eccc73d918a4d8decc7c0f24e4ff625bef9/osmosis_ai-0.2.15.tar.gz", hash = "sha256:6a14f7265bda527766b6c2c84b571c46b3ff8c0b41440ca4e64e34f0174978ab", size = 180644, upload-time = "2026-02-14T23:07:40.826Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/67/f8/a50c12d88514a667811972916836266323ed3fd07da54f53b1566c4031d6/osmosis_ai-0.2.17.tar.gz", hash = "sha256:87094a108d5e223c542c8c08d922e1e053b31bf7e548fe4390722fb5b4d0a953", size = 132228, upload-time = "2026-02-18T21:48:40.933Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dd/ec/b891924b57df47c66d66419f1a884f4a39856093899c0c296e28bfee48d5/osmosis_ai-0.2.15-py3-none-any.whl", hash = "sha256:201bc20de1d9d82d61b01ad5495c37dc0cbfcd80f995483e4526339cc164b5c1", size = 163313, upload-time = "2026-02-14T23:07:39.315Z" },
+    { url = "https://files.pythonhosted.org/packages/30/61/8920eca4f7c94b4def98d20830c8f496ca56b4978ec66d26d650be62fd17/osmosis_ai-0.2.17-py3-none-any.whl", hash = "sha256:6a3ee9c57685162e45317c2d5bea85c2e6a26755c8d43177c9050e4f741953de", size = 159448, upload-time = "2026-02-18T21:48:39.237Z" },
 ]
 
 [[package]]
@@ -1209,7 +1209,7 @@ dependencies = [
 requires-dist = [
     { name = "fastmcp", specifier = ">=2.12.4" },
     { name = "openai", specifier = ">=2.0.0" },
-    { name = "osmosis-ai", specifier = ">=0.2.15" },
+    { name = "osmosis-ai", specifier = ">=0.2.17" },
     { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "rich", specifier = ">=14.1.0" },
     { name = "starlette", specifier = ">=0.37.2" },
