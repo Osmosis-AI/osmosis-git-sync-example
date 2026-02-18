@@ -4,19 +4,31 @@ This repository demonstrates the layout and code artifacts that the Osmosis GitH
 
 ## Requirements
 
-- Python 3.12 (matches `pyproject.toml`)
-- Install project dependencies with `pip install .`; for editable installs use `pip install -e .` or `uv pip install .`
+- Python 3.10+ (3.12 recommended, matches `pyproject.toml`)
+- Install dependencies: `pip install "osmosis-ai[mcp]"` (or `uv add "osmosis-ai[mcp]"`)
 
 ## Quick Start
 
 ```bash
 # Optional: create a virtual environment first
-pip install -e .           # install the package and dependencies
+pip install "osmosis-ai[mcp]"   # install dependencies
+
+# Evaluate MCP tools against the sample dataset (requires OPENAI_API_KEY)
+osmosis eval --mcp ./mcp -d test_data.jsonl \
+    --eval-fn reward_fn.compute_reward:numbers_match_reward \
+    --model my-finetuned-model \
+    --base-url http://localhost:1234/v1
+
+# Or test without eval functions
+osmosis test --mcp ./mcp -d test_data.jsonl --model openai/gpt-5-mini
+
+# Start the MCP server directly (for other use cases)
 python mcp/main.py &       # start the FastMCP server on 0.0.0.0:8080
 python mcp/test/test.py    # list the published tools
-./scripts/run_reward_rubric_openai.sh  # run the OpenAI rubric example (requires OPENAI_API_KEY)
-# or
-./scripts/run_reward_rubric_anthropic.sh  # run the Anthropic rubric example (requires ANTHROPIC_API_KEY)
+
+# Run the rubric examples
+./scripts/run_reward_rubric_openai.sh      # requires OPENAI_API_KEY
+./scripts/run_reward_rubric_anthropic.sh   # requires ANTHROPIC_API_KEY
 ```
 
 Stop the MCP server with `Ctrl+C` when you are done, or pass `--host/--port` if you need to bind to a different interface.
@@ -32,22 +44,22 @@ osmosis-git-sync-example/
 │   │   └── mcp_server.py
 │   ├── tools/
 │   │   ├── __init__.py
-│   │   ├── api_helpers.py
-│   │   ├── math.py
-│   │   └── ml_utils.py
+│   │   └── math.py
 │   └── test/
 │       └── test.py
 ├── reward_fn/
 │   └── compute_reward.py
 ├── reward_rubric/
 │   ├── reward_rubric_anthropic.py
-│   └── reward_rubric_openai.py
+│   ├── reward_rubric_openai.py
+│   └── reward_rubric_xai.py
 ├── .github/
 │   └── workflows/
 │       └── reward_rubric.yml
 ├── scripts/
 │   ├── run_reward_rubric_anthropic.sh
 │   └── run_reward_rubric_openai.sh
+├── test_data.jsonl           ← sample dataset for osmosis eval/test
 ├── LICENSE.md
 ├── pyproject.toml
 ├── uv.lock
@@ -61,18 +73,11 @@ osmosis-git-sync-example/
 - `tools/__init__.py` exposes every `.py` module in the folder via `__all__`, so `from tools import *` eagerly loads each tool module.
 - Tool modules:
   - `math.multiply(first_val, second_val)` multiplies two numbers and rounds to four decimals.
-  - `api_helpers.validate_api_request(...)` validates required/empty fields.
-  - `api_helpers.format_api_response(...)` wraps payloads in a consistent envelope.
-  - `api_helpers.paginate_results(...)` slices item lists and returns pagination metadata.
-  - `ml_utils.calculate_similarity(...)` computes cosine similarity.
-  - `ml_utils.normalize_features(...)` performs min–max normalization on selected fields.
-  - `ml_utils.return_true()` always returns `True`; useful for sanity checks.
-  - `ml_utils.cluster_analysis(...)` (async) produces a toy clustering summary for supplied data.
 - `test/test.py` shows how to connect with `fastmcp.Client` and list the published tools.
 
 ### `reward_fn/` – Numeric reward functions
 
-- `compute_reward.py` implements `@osmosis_reward numbers_match_reward(...)`.
+- `compute_reward.py` defines `numbers_match_reward(...)` decorated with `@osmosis_reward`.
   - `extract_solution` grabs the first numeric token that follows a markdown-style `####` heading and returns it as text.
   - The reward converts the extracted token and ground truth to floats, awarding `1.0` when they match within `1e-7` and `0.0` otherwise (including extraction failures).
 
@@ -82,8 +87,9 @@ This folder contains simplified, provider-specific rubric scoring examples that 
 
 - **`reward_rubric_anthropic.py`** – Uses Anthropic's Claude (claude-sonnet-4-5-20250929) for rubric evaluation. Requires `ANTHROPIC_API_KEY` environment variable.
 - **`reward_rubric_openai.py`** – Uses OpenAI's GPT (gpt-5-mini) for rubric evaluation. Requires `OPENAI_API_KEY` environment variable.
+- **`reward_rubric_xai.py`** – Uses xAI's Grok (grok-4-fast-non-reasoning) for rubric evaluation. Requires `XAI_API_KEY` environment variable.
 
-Both files:
+All files:
 - Define an `@osmosis_rubric` decorated function that delegates scoring to `osmosis_ai.evaluate_rubric`
 - Use hardcoded rubric text, score ranges (0.0-1.0), and model configurations for simplicity
 - Can be imported and called directly in your Python code or executed as standalone modules
@@ -101,12 +107,16 @@ Both files:
 ## Installing dependencies
 
 ```bash
-# From the repository root
-pip install .
-# or install in editable mode
-pip install -e .
-# or, if you use uv
-uv pip install .
+# Local Rollout (MCP tools) — recommended for this repo
+pip install "osmosis-ai[mcp]"
+
+# Or, if you use uv
+uv add "osmosis-ai[mcp]"
+
+# Other install extras:
+# pip install osmosis-ai            # Core SDK only
+# pip install "osmosis-ai[server]"  # FastAPI server for Remote Rollout
+# pip install "osmosis-ai[full]"    # All features
 ```
 
 ## Running the MCP server
@@ -132,7 +142,7 @@ The script connects to `http://0.0.0.0:8080/mcp`, confirms the session, and list
 
 ## Running the reward rubric examples
 
-Make sure `osmosis-ai` is installed (run `pip install --upgrade osmosis-ai` if needed).
+Make sure dependencies are installed (see [Installing dependencies](#installing-dependencies)).
 
 ### Using OpenAI (GPT)
 
@@ -175,6 +185,168 @@ print(f"Score: {score}")
 ```
 
 Both scripts will evaluate whether the solution matches the ground truth and return a score between 0.0 and 1.0.
+
+## Local Eval & Test with `osmosis eval` / `osmosis test`
+
+Git-sync users can evaluate and test their MCP tools locally using `--mcp`, without writing a `RolloutAgentLoop`. The SDK loads all `@mcp.tool()` functions from the `mcp/` directory and runs a standard agent loop automatically.
+
+### Prerequisites
+
+```bash
+pip install "osmosis-ai[mcp]"
+```
+
+### Evaluating with `osmosis eval`
+
+`osmosis eval` runs your MCP tools against a dataset, scores each run with eval functions, and reports aggregated metrics (mean, std, pass@k).
+
+```bash
+# Basic eval — uses reward_fn/compute_reward.py as the eval function
+osmosis eval \
+    --mcp ./mcp \
+    -d test_data.jsonl \
+    --eval-fn reward_fn.compute_reward:numbers_match_reward \
+    --model openai/gpt-5-mini
+
+# Eval against a trained model endpoint
+osmosis eval \
+    --mcp ./mcp \
+    -d test_data.jsonl \
+    --eval-fn reward_fn.compute_reward:numbers_match_reward \
+    --model my-finetuned-model \
+    --base-url http://localhost:8000/v1
+
+# Compare trained model vs GPT-5-mini baseline (win/loss/tie report)
+osmosis eval \
+    --mcp ./mcp \
+    -d test_data.jsonl \
+    --eval-fn reward_fn.compute_reward:numbers_match_reward \
+    --model my-finetuned-model --base-url http://localhost:8000/v1 \
+    --baseline-model openai/gpt-5-mini
+
+# Compare two serving endpoints
+osmosis eval \
+    --mcp ./mcp \
+    -d test_data.jsonl \
+    --eval-fn reward_fn.compute_reward:numbers_match_reward \
+    --model my-model-v2 --base-url http://localhost:8000/v1 \
+    --baseline-model my-model-v1 --baseline-base-url http://localhost:8001/v1
+
+# pass@5 analysis with concurrent execution
+osmosis eval \
+    --mcp ./mcp \
+    -d test_data.jsonl \
+    --eval-fn reward_fn.compute_reward:numbers_match_reward \
+    --model openai/gpt-5-mini \
+    --n 5 --batch-size 5
+
+# Save results to JSON
+osmosis eval \
+    --mcp ./mcp \
+    -d test_data.jsonl \
+    --eval-fn reward_fn.compute_reward:numbers_match_reward \
+    --model openai/gpt-5-mini \
+    -o eval_results.json
+```
+
+### Testing with `osmosis test`
+
+`osmosis test` runs your MCP tools against a dataset and reports per-row pass/fail, token usage, and latency — useful for validating agent behavior before training.
+
+```bash
+# Basic test
+osmosis test \
+    --mcp ./mcp \
+    -d test_data.jsonl \
+    --model openai/gpt-5-mini
+
+# Interactive debugging — step through each LLM call
+osmosis test \
+    --mcp ./mcp \
+    -d test_data.jsonl \
+    --model openai/gpt-5-mini \
+    --interactive
+
+# Jump to a specific row in interactive mode
+osmosis test \
+    --mcp ./mcp \
+    -d test_data.jsonl \
+    --model openai/gpt-5-mini \
+    --interactive --row 3
+
+# Test a subset of rows
+osmosis test \
+    --mcp ./mcp \
+    -d test_data.jsonl \
+    --model openai/gpt-5-mini \
+    --limit 2 --offset 1
+
+# Save results to JSON
+osmosis test \
+    --mcp ./mcp \
+    -d test_data.jsonl \
+    --model openai/gpt-5-mini \
+    -o test_results.json
+```
+
+### How `--mcp` works
+
+When you pass `--mcp ./mcp`, the SDK:
+
+1. Imports `mcp/main.py`, which triggers all `@mcp.tool()` registrations
+2. Discovers registered tools (e.g. `multiply`) and converts them to OpenAI function-calling schemas
+3. Runs a built-in agent loop that calls the LLM, executes tool calls against your MCP functions, and repeats until the LLM stops calling tools or `--max-turns` is reached
+
+This means you can iterate on your tools and reward functions locally, then push to GitHub for Osmosis to sync — no `RolloutAgentLoop` code needed.
+
+> **Note:** `--mcp` and `-m/--module` are mutually exclusive. Use `--mcp` for git-sync projects; use `-m` for remote-rollout projects that implement `RolloutAgentLoop`.
+
+### Model naming convention
+
+Models can be specified in two formats:
+
+- **Simple**: `gpt-5-mini` (auto-prefixed to `openai/gpt-5-mini`)
+- **LiteLLM format**: `provider/model` (e.g., `anthropic/claude-sonnet-4-5`)
+
+See [LiteLLM Providers](https://docs.litellm.ai/docs/providers) for the full list of supported providers.
+
+### Supported dataset formats
+
+The `-d/--dataset` flag accepts three formats:
+
+- **Parquet** (recommended) — compact and fast for large datasets
+- **JSONL** — one JSON object per line (used in this repo)
+- **CSV** — comma-separated values with a header row
+
+Each row must contain: `system_prompt`, `user_prompt`, and `ground_truth` columns. Any additional columns are passed as metadata to your agent and reward functions.
+
+## Additional CLI Commands
+
+### Authentication
+
+Log in to the Osmosis platform for workspace management and training run submission:
+
+```bash
+osmosis login                    # Opens browser for authentication
+osmosis logout                   # End session and revoke credentials
+osmosis whoami                   # Show current user and workspaces
+osmosis workspace list           # List all logged-in workspaces
+osmosis workspace switch <name>  # Switch to a different workspace
+```
+
+### Previewing rubrics and datasets
+
+```bash
+osmosis preview --path test_data.jsonl              # Preview a dataset
+```
+
+### Evaluating with `osmosis eval-rubric`
+
+`osmosis eval-rubric` evaluates conversations against hosted rubric configurations. This is separate from `osmosis eval`, which runs eval functions against agent datasets.
+
+```bash
+osmosis eval-rubric --rubric support_followup --data test_data.jsonl
+```
 
 ## Configuring CI/CD with GitHub Actions
 
